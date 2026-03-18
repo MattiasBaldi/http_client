@@ -5,15 +5,16 @@
 #include <netdb.h> // DNS resolution (getaddinfo)
 #include <unistd.h> // POSIX API (close)
 #include <arpa/inet.h> // Internet operations (inet_ntop)
-#include <openssl/ssl.h> // TLS
+#include <openssl/ssl.h> // TLS 
 
 /* 1. URL PARSING */
 typedef struct {
   char *protocol;
-  char *host;
-  int port;
-  char *path;
-} parsed_url;
+  char *host; 
+  int port; 
+  char *path; 
+} parsed_url; 
+
 
 /* Available string functions for URL parsing:
  *
@@ -32,8 +33,12 @@ parsed_url parse_url(char *url) {
   parsed_url result = {0};
 
   // TODO: implement using functions above
+  char* scheme = strstr(url, "://"); 
+  printf("scheme %s", scheme); 
 
-  printf("test"); 
+  // scheme 
+
+
   return result;
 }
 
@@ -62,8 +67,6 @@ int main(int argc, char *argv[]) {
   /*  !! CONNECTION !! */
 
   // 1. Parse Url -> parsed_url
-  parsed_url parsed = parse_url("https://test.com"); 
-  return 0; 
 
   // 2. Resolve DNS -> ip
   

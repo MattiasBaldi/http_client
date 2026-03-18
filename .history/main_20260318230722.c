@@ -5,36 +5,24 @@
 #include <netdb.h> // DNS resolution (getaddinfo)
 #include <unistd.h> // POSIX API (close)
 #include <arpa/inet.h> // Internet operations (inet_ntop)
-#include <openssl/ssl.h> // TLS
+#include <openssl/ssl.h> // TLS 
 
 /* 1. URL PARSING */
 typedef struct {
   char *protocol;
-  char *host;
-  int port;
-  char *path;
-} parsed_url;
+  char *domain; 
+  int port; 
+  char *path; 
+} parsed_url; 
 
-/* Available string functions for URL parsing:
- *
- * strdup(str)                      - duplicates entire string, returns new pointer
- * strstr(haystack, needle)         - finds substring, returns pointer or NULL
- * strchr(str, char)                - finds first occurrence of character, returns pointer or NULL
- * strlen(str)                      - returns length of string
- * strncpy(dest, src, n)            - copies n characters from src to dest
- * strcmp(str1, str2)               - compares two strings, returns 0 if equal
- * atoi(str)                        - converts string to integer
- * malloc(size)                     - allocates memory, returns pointer
- * free(ptr)                        - frees allocated memory
- */
 
 parsed_url parse_url(char *url) {
-  parsed_url result = {0};
+  // get protocol
 
-  // TODO: implement using functions above
+  // get domain 
 
-  printf("test"); 
-  return result;
+  // 
+
 }
 
 // Structs
@@ -62,8 +50,6 @@ int main(int argc, char *argv[]) {
   /*  !! CONNECTION !! */
 
   // 1. Parse Url -> parsed_url
-  parsed_url parsed = parse_url("https://test.com"); 
-  return 0; 
 
   // 2. Resolve DNS -> ip
   

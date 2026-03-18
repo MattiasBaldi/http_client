@@ -15,6 +15,7 @@ typedef struct {
   char *path;
 } parsed_url;
 
+
 /* Available string functions for URL parsing:
  *
  * strdup(str)                      - duplicates entire string, returns new pointer
@@ -59,11 +60,11 @@ int main(int argc, char *argv[]) {
     .url = argv[2]
   };
 
+  return 0; 
+
   /*  !! CONNECTION !! */
 
   // 1. Parse Url -> parsed_url
-  parsed_url parsed = parse_url("https://test.com"); 
-  return 0; 
 
   // 2. Resolve DNS -> ip
   

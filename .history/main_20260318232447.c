@@ -15,6 +15,7 @@ typedef struct {
   char *path;
 } parsed_url;
 
+
 /* Available string functions for URL parsing:
  *
  * strdup(str)                      - duplicates entire string, returns new pointer
