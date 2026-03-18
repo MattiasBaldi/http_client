@@ -6,7 +6,11 @@
 #include <unistd.h> // POSIX API (close)
 #include <arpa/inet.h> // Internet operations (inet_ntop)
 
+
+
 /* https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Overview */
+
+
 
 
 /* OSI - Layer 7 - Application */
@@ -22,9 +26,6 @@
 // TCP Connection 
 // Data Transmission
 // Data Reception 
-
-
-/* 1. Open a socket with TCP */
 
 /* 1. URL PARSING */
 int parse_url(const char *url, char **host, char **post, char **path) {
