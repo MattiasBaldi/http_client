@@ -58,18 +58,18 @@ int parse_url(char *url, parsed_url *out) {
 int main(int argc, char *argv[]) {
 
   // define init
-  int sockfd = -1;
-  parsed_url *parsed = NULL;
-  struct addrinfo *res = NULL;
-  SSL_CTX *ctx = NULL;
-  SSL *ssl = NULL;
-  int status = 0;
+  int sockfd = -1;                 // socket handler
+  parsed_url *parsed = NULL;       // parsed url
+  struct addrinfo *res = NULL;     // dns info
+  SSL_CTX *ctx = NULL;             // OpenSSL context
+  SSL *ssl = NULL;                 // OpenSSL connection
+  int status = 0;                  // Track success/failure of main
 
   // Validate params
   if (argc != 3) {
     printf("Params missing or too many\n");
-    status = 1;
-    goto cleanup;
+    status = 1; 
+    goto cleanup; 
   }
 
   // Init request
@@ -85,8 +85,8 @@ int main(int argc, char *argv[]) {
   int url_status = parse_url(http_request.url, parsed);
   if (url_status) {
     printf("Issues with parsing, ending program\n");
-    status = 1;
-    goto cleanup;
+    status = 1; 
+    goto cleanup; 
   }
 
   // 2. Perform DNS Lookup
@@ -98,8 +98,8 @@ int main(int argc, char *argv[]) {
   if (dns_status != 0)
   {
     fprintf(stderr, "getaddrinfo error: %s\n", gai_strerror(dns_status)); //  - gai_strerror() - converts DNS error codes to human-readable strings
-    status = 1;
-    goto cleanup;
+    status = 1; 
+    goto cleanup; 
   }
 
   // 3. Combine into socket (port from parsed_url and ip) 
@@ -124,40 +124,93 @@ int main(int argc, char *argv[]) {
     break; 
   }
   if (!p) {
-    fprintf(stderr, "Failed to connect to any address\n");
-    freeaddrinfo(res);
-    status = 1;
-    goto cleanup;
+    fprintf(stderr, "Failed to connect to any address\n"); 
+    freeaddrinfo(res); 
+    goto cleanup; 
   }
   freeaddrinfo(res); // Free DNS results
 
   // 5. Establish TLS handshake if https
-  if(strcmp(parsed->protocol, "https") == 0) {
+  if (strcmp(parsed->protocol, "https") == 0) {
+    ctx = SSL_CTX_new(TLS_client_method());
+    if (!ctx) {
+      fprintf(stderr, "SSL context creation failed\n");
+      status = 1;
+      goto cleanup;
+    }
+    SSL_CTX_set_verify(ctx, SSL_VERIFY_NONE, NULL);
 
+    ssl = SSL_new(ctx);
+    if (!ssl) {
+      fprintf(stderr, "SSL connection creation failed\n");
+      status = 1;
+      goto cleanup;
+    }
+
+    SSL_set_fd(ssl, sockfd);
+    if (SSL_connect(ssl) <= 0) {
+      fprintf(stderr, "TLS handshake failed\n");
+      status = 1;
+      goto cleanup;
+    }
   }
 
-  // REQUEST
+  // REQUEST: Format HTTP request
+  char request[1024];
+  int req_len = snprintf(request, sizeof(request),
+    "GET %s HTTP/1.1\r\nHost: %s\r\nConnection: close\r\n\r\n",
+    parsed->path[0] ? parsed->path : "/", parsed->host);
 
-  // 1. Format request into HTTP format
+  if (req_len < 0 || (size_t)req_len >= sizeof(request)) {
+    fprintf(stderr, "Request too long\n");
+    status = 1;
+    goto cleanup;
+  }
 
-  // 2. Send
+  // Send request
+  if (ssl) {
+    if (SSL_write(ssl, request, req_len) <= 0) {
+      fprintf(stderr, "SSL write failed\n");
+      status = 1;
+      goto cleanup;
+    }
+  } else {
+    if (send(sockfd, request, req_len, 0) == -1) {
+      perror("send failed");
+      status = 1;
+      goto cleanup;
+    }
+  }
 
-  // RESPONSE
+  // RESPONSE: Receive response
+  char buffer[4096];
+  ssize_t bytes_received;
 
-  // 1. Wait for response
-
-  // 2. Parse response
-
-  // 3. Return response
+  if (ssl) {
+    while ((bytes_received = SSL_read(ssl, buffer, sizeof(buffer) - 1)) > 0) {
+      buffer[bytes_received] = '\0';
+      fputs(buffer, stdout);
+    }
+  } else {
+    while ((bytes_received = recv(sockfd, buffer, sizeof(buffer) - 1, 0)) > 0) {
+      buffer[bytes_received] = '\0';
+      fputs(buffer, stdout);
+    }
+    if (bytes_received == -1) {
+      perror("recv failed");
+    }
+  }
 
   // Finish
   status = 0;
-  goto cleanup;
+  goto cleanup; 
 
   // cleanup
-cleanup:
-  if(parsed) free(parsed);
-  if(sockfd != -1) close(sockfd);
-  return status;
+  cleanup:
+    if(ssl) SSL_free(ssl);
+    if(ctx) SSL_CTX_free(ctx);
+    if(parsed) free(parsed);
+    if(sockfd != -1) close(sockfd);
+    return status; 
 }
 #endif

@@ -39,14 +39,10 @@ void test_parse_url_https(void) {
 
 void test_parse_url_invalid(void) {
     parsed_url parsed;
-    printf("TEST INVALID: "); 
+    printf("TEST: "); 
     int parse_status = parse_url("www.test.com", &parsed);
     TEST_ASSERT_EQUAL_INT(1, parse_status);
 }
-
-// test dns
-
-// test socket
 
 int main(void) {
     UNITY_BEGIN();

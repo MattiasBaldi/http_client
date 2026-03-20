@@ -44,10 +44,6 @@ void test_parse_url_invalid(void) {
     TEST_ASSERT_EQUAL_INT(1, parse_status);
 }
 
-// test dns
-
-// test socket
-
 int main(void) {
     UNITY_BEGIN();
     RUN_TEST(test_parse_url_http);

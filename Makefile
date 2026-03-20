@@ -1,5 +1,7 @@
 CC = gcc
-CFLAGS = -Wall -Wextra
+OPENSSL_DIR = /opt/homebrew/opt/openssl
+CFLAGS = -Wall -Wextra -I$(OPENSSL_DIR)/include
+LDFLAGS = -L$(OPENSSL_DIR)/lib -lssl -lcrypto
 BUILD_DIR = build
 TEST_DIR = tests
 
@@ -14,7 +16,7 @@ all: main test
 
 # Build main program
 main: main.c
-	$(CC) $(CFLAGS) -o main main.c
+	$(CC) $(CFLAGS) $(LDFLAGS) -o main main.c
 
 # Build and run tests
 test: $(TEST_TARGETS)
@@ -23,7 +25,7 @@ test: $(TEST_TARGETS)
 
 # Build individual test executables (compile main.c functions, not main())
 $(BUILD_DIR)/test_%: $(TEST_DIR)/test_%.c main.c $(UNITY_SRC) | $(BUILD_DIR)
-	$(CC) $(TEST_CFLAGS) -o $@ $^
+	$(CC) $(TEST_CFLAGS) $(LDFLAGS) -o $@ $^
 
 # Create build directory
 $(BUILD_DIR):

@@ -7,8 +7,7 @@
 
 #include <unistd.h> // POSIX API (close)
 #include <arpa/inet.h> // Internet operations (inet_ntop)
-#include <openssl/ssl.h> // TLS
-#include <openssl/err.h> // OpenSSL error handling
+//#include <openssl/ssl.h> // TLS - TODO: install OpenSSL headers
 #include "main.h" // Function declarations and type definitions
 
 /* 1. URL PARSING */
@@ -54,22 +53,17 @@ int parse_url(char *url, parsed_url *out) {
   return 0; 
 }
 
+
 #ifndef TEST
 int main(int argc, char *argv[]) {
 
-  // define init
-  int sockfd = -1;
-  parsed_url *parsed = NULL;
-  struct addrinfo *res = NULL;
-  SSL_CTX *ctx = NULL;
-  SSL *ssl = NULL;
-  int status = 0;
+  int status = 0; // Track success/failure
 
   // Validate params
   if (argc != 3) {
     printf("Params missing or too many\n");
-    status = 1;
-    goto cleanup;
+    status = 1; 
+    goto cleanup; 
   }
 
   // Init request
@@ -81,16 +75,16 @@ int main(int argc, char *argv[]) {
   // CONNECTION
 
   // 1. Parse URL
-  parsed = malloc(sizeof(parsed_url));
+  parsed_url *parsed = malloc(sizeof(parsed_url));
   int url_status = parse_url(http_request.url, parsed);
   if (url_status) {
     printf("Issues with parsing, ending program\n");
-    status = 1;
-    goto cleanup;
+    status = 1; 
+    goto cleanup; 
   }
 
   // 2. Perform DNS Lookup
-  struct addrinfo hints = {}; // comes from netdb.h https://man7.org/linux/man-pages/man3/getaddrinfo.3.html#:~:text=IPv6%20dependencies.%0A%0A%20%20%20%20%20%20%20The-,addrinfo,-structure%20used%20by
+  struct addrinfo hints = {}, *res; // comes from netdb.h https://man7.org/linux/man-pages/man3/getaddrinfo.3.html#:~:text=IPv6%20dependencies.%0A%0A%20%20%20%20%20%20%20The-,addrinfo,-structure%20used%20by
   hints.ai_family = AF_UNSPEC; // IPv4 or IPv&
   hints.ai_socktype = SOCK_STREAM; // TCP Socket
 
@@ -98,11 +92,12 @@ int main(int argc, char *argv[]) {
   if (dns_status != 0)
   {
     fprintf(stderr, "getaddrinfo error: %s\n", gai_strerror(dns_status)); //  - gai_strerror() - converts DNS error codes to human-readable strings
-    status = 1;
-    goto cleanup;
+    status = 1; 
+    goto cleanup; 
   }
 
-  // 3. Combine into socket (port from parsed_url and ip) 
+  // 3. Combine into socket (port from parsed_url and ip)
+  int sockfd = -1; 
 
   /**
    * sockfd = socket file descriptor                                                  
@@ -124,17 +119,14 @@ int main(int argc, char *argv[]) {
     break; 
   }
   if (!p) {
-    fprintf(stderr, "Failed to connect to any address\n");
-    freeaddrinfo(res);
-    status = 1;
-    goto cleanup;
+    fprintf(stderr, "Failed to connect to any address\n"); 
+    freeaddrinfo(res); 
+    goto cleanup; 
   }
   freeaddrinfo(res); // Free DNS results
 
-  // 5. Establish TLS handshake if https
-  if(strcmp(parsed->protocol, "https") == 0) {
-
-  }
+  // 5. Establish TLS handshake
+  
 
   // REQUEST
 
@@ -151,13 +143,15 @@ int main(int argc, char *argv[]) {
   // 3. Return response
 
   // Finish
-  status = 0;
-  goto cleanup;
+  status = 0; 
+  goto cleanup; 
 
   // cleanup
-cleanup:
-  if(parsed) free(parsed);
-  if(sockfd != -1) close(sockfd);
-  return status;
+  cleanup: 
+    if(parsed) free(parsed);
+    if(res) freeaddrinfo(res);
+    if(sockfd != -1) close(sockfd); 
+
+    return status; 
 }
 #endif
