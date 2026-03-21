@@ -10,12 +10,10 @@
 #include <openssl/err.h> // OpenSSL error handling
 #include "main.h" // Function declarations and type definitions
 
-/* 1. URL PARSING
- * See notes.md#url-parsing---string-functions for string function reference
- */
-
+// See notes: notes.md#url-parsing---string-functions for string function reference
 int parse_url(char *url, url_info *out) {
   if (!url || !out) return 1;
+  memset(out, 0, sizeof(*out));
 
   // Protocol
   sscanf(url, "%[^:]:", out->protocol);
@@ -46,7 +44,7 @@ int parse_url(char *url, url_info *out) {
   return 0;
 }
 
-// Note: See notes.md#ssl-vs-http-communication for send/recv differences
+// See notes.md#ssl-vs-http-communication for send/recv differences
 SSL *set_tls(int sockfd) {
   // Step 1: Initialize SSL context
   const SSL_METHOD *tls_method = TLS_client_method();
@@ -69,11 +67,11 @@ SSL *set_tls(int sockfd) {
 }
 
 // See notes.md#printf-family-of-functions
-int send_request(int sockfd, SSL *ssl, char *method, char *path, char *host) {
+int send_request(int sockfd, SSL *ssl, request *req, url_info *url) {
   char req_buf[1024];
   int req_len = snprintf(req_buf, sizeof(req_buf),
     "%s %s HTTP/1.1\r\nHost: %s\r\nUser-Agent: MyHTTPClient/1.0\r\nConnection: close\r\n\r\n",
-    method, path, host);
+    req->method, url->path, url->host);
 
   if (req_len < 0 || (size_t)req_len >= sizeof(req_buf)) {
     fprintf(stderr, "Request too long\n");
@@ -85,7 +83,8 @@ int send_request(int sockfd, SSL *ssl, char *method, char *path, char *host) {
       perror("send failed");
       return 1;
     }
-  } else {
+  } 
+  else {
     if (send(sockfd, req_buf, req_len, 0) == -1) {
       perror("send failed");
       return 1;
@@ -109,7 +108,8 @@ int read_response(int sockfd, SSL *ssl) {
       perror("ssl_read failed");
       return 1;
     }
-  } else {
+  } 
+  else {
     while ((bytes_received = recv(sockfd, buffer, sizeof(buffer) - 1, 0)) > 0) {
       buffer[bytes_received] = '\0';
       fputs(buffer, stdout);
@@ -131,7 +131,6 @@ int main(int argc, char *argv[]) {
   int sockfd = -1;
   url_info *parsed_url = NULL;
   struct addrinfo *res = NULL;
-  SSL *ssl = NULL;
 
   // Validate user input
   if (argc != 3) {
@@ -140,7 +139,13 @@ int main(int argc, char *argv[]) {
     goto cleanup;
   }
 
-  request http_request = { .method = argv[1], .url = argv[2] };
+  request http_request = { 
+    .method = argv[1], 
+    .url = argv[2] 
+    // headers
+    // body
+    // proxies
+  };
 
   // CONNECTION
 
@@ -189,6 +194,7 @@ int main(int argc, char *argv[]) {
   freeaddrinfo(res); // Free DNS results
 
   // 5. Establish TLS handshake if https (see notes.md#tlsssl-handshake-process)
+  SSL *ssl = NULL;
   if (strcmp(parsed_url->protocol, "https") == 0) {
     ssl = set_tls(sockfd);
     if (!ssl) {
@@ -198,7 +204,7 @@ int main(int argc, char *argv[]) {
   }
 
   // REQUEST
-  if (send_request(sockfd, ssl, http_request.method, parsed_url->path, parsed_url->host)) {
+  if (send_request(sockfd, ssl, &http_request, parsed_url)) {
     status = 1;
     goto cleanup;
   }

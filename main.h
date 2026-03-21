@@ -1,6 +1,8 @@
 #ifndef MAIN_H
 #define MAIN_H
 
+#include <openssl/ssl.h>
+
 #define MAX_PROTOCOL 20
 #define MAX_PORT 20
 #define MAX_HOST 256
@@ -19,5 +21,8 @@ typedef struct {
 } request;
 
 int parse_url(char *url, url_info *out);
+SSL *set_tls(int sockfd);
+int send_request(int sockfd, SSL *ssl, request *req, url_info *url);
+int read_response(int sockfd, SSL *ssl);
 
 #endif
