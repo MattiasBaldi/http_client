@@ -140,8 +140,8 @@ int main(int argc, char *argv[]) {
   }
 
   request http_request = { 
-    .method = argv[1], 
-    .url = argv[2] 
+    .method = argv[1],
+    .url = argv[2]
     // headers
     // body
     // proxies
