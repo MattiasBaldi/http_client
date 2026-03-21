@@ -1,6 +1,6 @@
 CC = gcc
 OPENSSL_DIR = /opt/homebrew/opt/openssl
-CFLAGS = -Wall -Wextra -I$(OPENSSL_DIR)/include
+CFLAGS = -Wall -Wextra -g -fsanitize=address -I$(OPENSSL_DIR)/include
 LDFLAGS = -L$(OPENSSL_DIR)/lib -lssl -lcrypto
 BUILD_DIR = build
 TEST_DIR = tests

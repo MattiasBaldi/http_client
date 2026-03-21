@@ -11,13 +11,13 @@ typedef struct {
   char host[MAX_HOST];
   char port[MAX_PORT];
   char path[MAX_PATH];
-} parsed_url;                                                                                 
+} url_info;                                                                                 
                                                                                               
 typedef struct {                                                                              
   char *method;                                                                               
   char *url;                                                                                  
 } request;
 
-int parse_url(char *url, parsed_url *out);
+int parse_url(char *url, url_info *out);
 
 #endif
