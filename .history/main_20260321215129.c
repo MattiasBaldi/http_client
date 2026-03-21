@@ -10,70 +10,30 @@
 #include <openssl/err.h> // OpenSSL error handling
 #include "main.h" // Function declarations and type definitions
 
-// parse request
-int parse_request(int argc, char *argv[], request *out)
-{
-  if (!out) return 1;
-  if (argc == 0)
-  {
-    out->err = "No arguments given, please provide them";
-    return 1;
-  }
-  memset(out, 0, sizeof(*out));
 
-  for (int i = 0; i < argc; i++) {
-    // Method (optional, defaults to GET)
-    if (strcmp(argv[i], "-X") == 0) {
-      if (i + 1 < argc) {
-        out->method = argv[i+1];
-        i++;
-      } else {
-        out->err = "-X requires an argument";
-        return 1;
-      }
-    }
-    // Headers (optional, multiple allowed)
-    else if (strcmp(argv[i], "-H") == 0) {
-      if (i + 1 < argc && out->headers_count < MAX_HEADERS) {
-        out->headers[out->headers_count++] = argv[i+1];
-        i++;
-      } else {
-        out->err = "-H requires an argument";
-        return 1;
-      }
-    }
-    // Body (optional)
-    else if (strcmp(argv[i], "-d") == 0) {
-      if (i + 1 < argc) {
-        out->body = argv[i+1];
-        i++;
-      } else {
-        out->err = "-d requires an argument";
-        return 1;
-      }
-    }
-    // URL (required, must start with http:// or https://)
-    else if (strncmp(argv[i], "http://", 7) == 0 || strncmp(argv[i], "https://", 8) == 0) {
-      out->url = argv[i];
-    }
-  }
+// parse request 
+// int parse_request(char* request, http_request *out)
+// {
 
-  if (out->url == NULL) {
-    out->err = "URL required";
-    return 1;
-  }
 
-  if (out->method == NULL) out->method = "GET";
-  return 0;
-}
+// get url
+
+// get method
+
+// get headers
+
+// get body
+
+// get 
+// }
 
 // See notes: notes.md#url-parsing---string-functions for string function reference
-int parse_url(char *url_str, url *out) {
-  if (!url_str || !out) return 1;
+int parse_url(char *url, url_info *out) {
+  if (!url || !out) return 1;
   memset(out, 0, sizeof(*out));
 
   // Protocol
-  sscanf(url_str, "%[^:]:", out->protocol);
+  sscanf(url, "%[^:]:", out->protocol);
 
   // Validate
   if (strcmp(out->protocol, "http") != 0 && strcmp(out->protocol,"https") != 0)
@@ -86,14 +46,14 @@ int parse_url(char *url_str, url *out) {
   strcpy(out->port, (strcmp(out->protocol, "https") == 0) ? "443" : "80");
 
   // Host
-  sscanf(url_str, "%*[^:]://%255[^:/]", out->host);
-  if (strlen(out->host) == 0) {
-    printf("Host is missing\n");
-    return 1;
-  }
+  sscanf(url, "%*[^:]://%255[^:/]", out->host);
+  if (strlen(out->host) == 0) {                                                                                                                                  
+    printf("Host is missing\n");                                                                                                                                 
+    return 1;                                                                                                                                                  
+  }   
 
   // Path
-  sscanf(url_str, "%*[^:]://%*[^/]%255s", out->path);
+  sscanf(url, "%*[^:]://%*[^/]%255s", out->path);
   if (strlen(out->path) == 0) {                                                                                                                                  
     strcpy(out->path, "/");                                                                                                                                    
   }              
@@ -124,40 +84,11 @@ SSL *set_tls(int sockfd) {
 }
 
 // See notes.md#printf-family-of-functions
-int send_request(int sockfd, SSL *ssl, request *req, url *parsed_url) {
-  char req_buf[4096];
-  int offset = 0;
-
-  // Request line + default headers
-  offset += snprintf(req_buf + offset, sizeof(req_buf) - offset,
-    "%s %s HTTP/1.1\r\n"
-    "Host: %s\r\n"
-    "User-Agent: MyHTTPClient/1.0\r\n",
-    req->method, parsed_url->path, parsed_url->host);
-
-  // Custom headers from -H flags
-  for (int i = 0; i < req->headers_count; i++) {
-    offset += snprintf(req_buf + offset, sizeof(req_buf) - offset,
-      "%s\r\n", req->headers[i]);
-  }
-
-  // Body headers + body (if present)
-  if (req->body) {
-    int body_len = strlen(req->body);
-    offset += snprintf(req_buf + offset, sizeof(req_buf) - offset,
-      "Content-Type: application/json\r\n"
-      "Content-Length: %d\r\n",
-      body_len);
-  }
-
-  // End of headers + body
-  offset += snprintf(req_buf + offset, sizeof(req_buf) - offset, "Connection: close\r\n\r\n");
-
-  if (req->body) {
-    offset += snprintf(req_buf + offset, sizeof(req_buf) - offset, "%s", req->body);
-  }
-
-  int req_len = offset;
+int send_request(int sockfd, SSL *ssl, request *req, url_info *url) {
+  char req_buf[1024];
+  int req_len = snprintf(req_buf, sizeof(req_buf),
+    "%s %s HTTP/1.1\r\nHost: %s\r\nUser-Agent: MyHTTPClient/1.0\r\nConnection: close\r\n\r\n",
+    req->method, url->path, url->host);
 
   if (req_len < 0 || (size_t)req_len >= sizeof(req_buf)) {
     fprintf(stderr, "Request too long\n");
@@ -215,20 +146,30 @@ int main(int argc, char *argv[]) {
   // program status
   int status = 0;
   int sockfd = -1;
-  url *parsed_url = NULL;
+  url_info *parsed_url = NULL;
   struct addrinfo *res = NULL;
-  SSL *ssl = NULL;
 
-  // 1. Parse Request (skip argv[0] program name)
-  request http_request = {};
-  if (parse_request(argc - 1, argv + 1, &http_request)) {
-    printf("Error: %s\n", http_request.err);
+  // Validate user input
+  if (argc != 3) {
+    printf("Params missing or too many\n");
     status = 1;
     goto cleanup;
   }
 
+  // parse for headers
+
+  request http_request = { 
+    .method = argv[1],
+    .url = argv[2]
+    // TODO: headers
+    // TODO: body
+    // TODO: proxies
+  };
+
+  // CONNECTION
+
   // 1. Parse URL
-  parsed_url = malloc(sizeof(*parsed_url));
+  parsed_url = malloc(sizeof(url_info));
   int url_status = parse_url(http_request.url, parsed_url);
   if (url_status) {
     printf("Issues with parsing, ending program\n");
@@ -236,14 +177,13 @@ int main(int argc, char *argv[]) {
     goto cleanup;
   }
 
-  // CONNECTION
-
   // 2. Perform DNS Lookup (see notes.md#dns-resolution-with-getaddrinfo)
   struct addrinfo hints = {};
   hints.ai_family = AF_UNSPEC;
   hints.ai_socktype = SOCK_STREAM;
 
   int dns_status = getaddrinfo(parsed_url->host, parsed_url->port, &hints, &res);
+
   if (dns_status != 0)
   {
     fprintf(stderr, "getaddrinfo error: %s\n", gai_strerror(dns_status));
@@ -273,6 +213,7 @@ int main(int argc, char *argv[]) {
   freeaddrinfo(res); // Free DNS results
 
   // 5. Establish TLS handshake if https (see notes.md#tlsssl-handshake-process)
+  SSL *ssl = NULL;
   if (strcmp(parsed_url->protocol, "https") == 0) {
     ssl = set_tls(sockfd);
     if (!ssl) {

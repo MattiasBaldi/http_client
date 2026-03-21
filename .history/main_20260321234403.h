@@ -7,7 +7,6 @@
 #define MAX_PORT 20
 #define MAX_HOST 256
 #define MAX_PATH 256
-#define MAX_HEADERS 20
 
 typedef struct {
   char protocol[MAX_PROTOCOL];
@@ -20,9 +19,9 @@ typedef struct {
 typedef struct {
   char *method;
   char *url;
-  char *headers[MAX_HEADERS]; 
-  int headers_count; 
+  char *headers;
   char *body;
+  url *parsed_url; 
   char *err;
 } request; 
 

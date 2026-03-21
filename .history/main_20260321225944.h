@@ -7,7 +7,6 @@
 #define MAX_PORT 20
 #define MAX_HOST 256
 #define MAX_PATH 256
-#define MAX_HEADERS 20
 
 typedef struct {
   char protocol[MAX_PROTOCOL];
@@ -20,14 +19,13 @@ typedef struct {
 typedef struct {
   char *method;
   char *url;
-  char *headers[MAX_HEADERS]; 
-  int headers_count; 
+  char *headers;
   char *body;
   char *err;
 } request; 
 
 
-int parse_request(int argc, char *argv[], request *out); 
+int parse_request(char *argv[], request *out); 
 int parse_url(char *url_str, url *out);
 SSL *set_tls(int sockfd);
 int send_request(int sockfd, SSL *ssl, request *req, url *parsed_url);

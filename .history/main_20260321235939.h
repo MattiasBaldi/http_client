@@ -20,8 +20,7 @@ typedef struct {
 typedef struct {
   char *method;
   char *url;
-  char *headers[MAX_HEADERS]; 
-  int headers_count; 
+  char *headers[20];
   char *body;
   char *err;
 } request; 

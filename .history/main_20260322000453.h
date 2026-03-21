@@ -21,7 +21,7 @@ typedef struct {
   char *method;
   char *url;
   char *headers[MAX_HEADERS]; 
-  int headers_count; 
+  int header_count; 
   char *body;
   char *err;
 } request; 

@@ -18,6 +18,98 @@ Used in `parse_url()` to extract protocol, host, port, and path from URLs.
 
 ---
 
+## sscanf() - Formatted String Parsing
+
+`sscanf()` reads formatted data from a string (like `scanf()` but from memory instead of stdin).
+
+**What it does:**
+- Parses strings according to a format specification
+- Extracts specific parts of a string without manual pointer manipulation
+- Returns: number of successfully parsed items, or EOF on error
+
+**Signature:**
+```c
+int sscanf(const char *str, const char *format, ...)
+```
+
+**Format specifiers used in your code:**
+
+| Specifier | Meaning | Example |
+|-----------|---------|---------|
+| `%[^:]` | "read until you hit a colon" | `sscanf("http://host", "%[^:]", proto)` → `"http"` |
+| `%*[^:]` | "skip until colon" (asterisk = discard) | Skip the protocol part |
+| `://` | Literal characters | Match `://` in URL string |
+| `%255s` | Read max 255 characters | `sscanf("http://host:80", "%*[^:]://%255s", host)` → `"host:80"` |
+| `%[^:/]` | "read until colon OR slash" | Extract host without port/path |
+| `%d` | Integer | Parse port numbers |
+
+**Your parse_url() examples:**
+```c
+// Extract protocol before the colon
+sscanf(url, "%[^:]:", out->protocol);
+// Result: "http://example.com:80" → "http"
+
+// Skip protocol and :// then extract host
+sscanf(url, "%*[^:]://%255[^:/]", out->host);
+// Result: "http://example.com:80/path" → "example.com"
+
+// Skip everything until path
+sscanf(url, "%*[^:]://%*[^/]%255s", out->path);
+// Result: "http://example.com:80/path" → "/path"
+```
+
+**Advantages:**
+- Concise parsing without manual pointer arithmetic
+- Handles delimiters elegantly
+- Good for structured formats (URLs, CSV, key=value)
+
+**Disadvantages:**
+- Less control over error cases (hard to know exactly where parsing failed)
+- Can be harder to debug complex format strings
+- Buffer overflow risk if you specify wrong size
+
+---
+
+## Other Useful String Functions for HTTP Client
+
+**For parsing headers and body:**
+
+- **`strtok(str, delim)`** - splits string by delimiter into tokens
+  ```c
+  char *line = strtok(response, "\r\n");  // Split by CRLF
+  ```
+  Warning: modifies original string, use with copies
+
+- **`strspn(str, chars)`** - returns length of leading characters matching a set
+  ```c
+  int whitespace_len = strspn("  hello", " ");  // Returns 2
+  ```
+
+- **`strcpy(dest, src)`** - copies entire string (UNSAFE - no bounds check)
+  ```c
+  strcpy(out->port, "80");  // Used in your code - works here since "80" is short
+  ```
+  Better: use `strncpy()` or `snprintf()` instead
+
+- **`memset(ptr, value, size)`** - fills memory with a value (zeroing structs)
+  ```c
+  memset(out, 0, sizeof(*out));  // Zero-initialize struct
+  ```
+  Used in `parse_url()` to ensure all fields start empty
+
+- **`strncmp(s1, s2, n)`** - compare first n characters
+  ```c
+  if (strncmp(header, "Content-Type:", 13) == 0) { ... }
+  ```
+  Good for parsing headers without knowing full string length
+
+- **`memcpy(dest, src, n)`** - copy bytes (like strncpy but for binary data)
+  ```c
+  memcpy(buffer, header_data, header_len);
+  ```
+
+---
+
 ## Socket File Descriptors
 
 **What is a file descriptor?**

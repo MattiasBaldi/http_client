@@ -22,7 +22,6 @@ int parse_request(int argc, char *argv[], request *out)
   memset(out, 0, sizeof(*out));
 
   for (int i = 0; i < argc; i++) {
-    // Method (optional, defaults to GET)
     if (strcmp(argv[i], "-X") == 0) {
       if (i + 1 < argc) {
         out->method = argv[i+1];
@@ -32,7 +31,6 @@ int parse_request(int argc, char *argv[], request *out)
         return 1;
       }
     }
-    // Headers (optional, multiple allowed)
     else if (strcmp(argv[i], "-H") == 0) {
       if (i + 1 < argc && out->headers_count < MAX_HEADERS) {
         out->headers[out->headers_count++] = argv[i+1];
@@ -42,7 +40,6 @@ int parse_request(int argc, char *argv[], request *out)
         return 1;
       }
     }
-    // Body (optional)
     else if (strcmp(argv[i], "-d") == 0) {
       if (i + 1 < argc) {
         out->body = argv[i+1];
@@ -52,7 +49,6 @@ int parse_request(int argc, char *argv[], request *out)
         return 1;
       }
     }
-    // URL (required, must start with http:// or https://)
     else if (strncmp(argv[i], "http://", 7) == 0 || strncmp(argv[i], "https://", 8) == 0) {
       out->url = argv[i];
     }
@@ -125,39 +121,10 @@ SSL *set_tls(int sockfd) {
 
 // See notes.md#printf-family-of-functions
 int send_request(int sockfd, SSL *ssl, request *req, url *parsed_url) {
-  char req_buf[4096];
-  int offset = 0;
-
-  // Request line + default headers
-  offset += snprintf(req_buf + offset, sizeof(req_buf) - offset,
-    "%s %s HTTP/1.1\r\n"
-    "Host: %s\r\n"
-    "User-Agent: MyHTTPClient/1.0\r\n",
+  char req_buf[1024];
+  int req_len = snprintf(req_buf, sizeof(req_buf),
+    "%s %s HTTP/1.1\r\nHost: %s\r\nUser-Agent: MyHTTPClient/1.0\r\nConnection: close\r\n\r\n",
     req->method, parsed_url->path, parsed_url->host);
-
-  // Custom headers from -H flags
-  for (int i = 0; i < req->headers_count; i++) {
-    offset += snprintf(req_buf + offset, sizeof(req_buf) - offset,
-      "%s\r\n", req->headers[i]);
-  }
-
-  // Body headers + body (if present)
-  if (req->body) {
-    int body_len = strlen(req->body);
-    offset += snprintf(req_buf + offset, sizeof(req_buf) - offset,
-      "Content-Type: application/json\r\n"
-      "Content-Length: %d\r\n",
-      body_len);
-  }
-
-  // End of headers + body
-  offset += snprintf(req_buf + offset, sizeof(req_buf) - offset, "Connection: close\r\n\r\n");
-
-  if (req->body) {
-    offset += snprintf(req_buf + offset, sizeof(req_buf) - offset, "%s", req->body);
-  }
-
-  int req_len = offset;
 
   if (req_len < 0 || (size_t)req_len >= sizeof(req_buf)) {
     fprintf(stderr, "Request too long\n");

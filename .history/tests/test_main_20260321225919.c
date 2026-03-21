@@ -8,73 +8,13 @@ void setUp(void) {}
 void tearDown(void) {}
 
 // ---- ARGS PARSING TESTS ----
-void test_parse_request_default_method(void) {
-    char *argv[] = {"https://www.example.com/api"};
-    int argc = 1;
-    request http_request = {};
-    int request_status = parse_request(argc, argv, &http_request);
 
-    TEST_ASSERT_EQUAL_INT(0, request_status);
-    TEST_ASSERT_EQUAL_STRING("GET", http_request.method);
-    TEST_ASSERT_EQUAL_STRING("https://www.example.com/api", http_request.url);
+void test_pars_request(void) {
+
 }
-
-void test_parse_request_method_post(void) {
-    char *argv[] = {"-X", "POST", "https://www.example.com/api"};
-    int argc = 3;
-    request http_request = {};
-    int request_status = parse_request(argc, argv, &http_request);
-
-    TEST_ASSERT_EQUAL_INT(0, request_status);
-    TEST_ASSERT_EQUAL_STRING("POST", http_request.method);
-    TEST_ASSERT_EQUAL_STRING("https://www.example.com/api", http_request.url);
-}
-
-void test_parse_request_with_header(void) {
-    char *argv[] = {"-H", "Content-Type: application/json", "https://www.example.com/api"};
-    int argc = 3;
-    request http_request = {};
-    int request_status = parse_request(argc, argv, &http_request);
-
-    TEST_ASSERT_EQUAL_INT(0, request_status);
-    TEST_ASSERT_EQUAL_STRING("GET", http_request.method);
-    TEST_ASSERT_EQUAL_INT(1, http_request.headers_count);
-    TEST_ASSERT_EQUAL_STRING("Content-Type: application/json", http_request.headers[0]);
-}
-
-void test_parse_request_with_body(void) {
-    char *argv[] = {"-X", "POST", "-d", "{\"key\":\"value\"}", "https://www.example.com/api"};
-    int argc = 5;
-    request http_request = {};
-    int request_status = parse_request(argc, argv, &http_request);
-
-    TEST_ASSERT_EQUAL_INT(0, request_status);
-    TEST_ASSERT_EQUAL_STRING("POST", http_request.method);
-    TEST_ASSERT_EQUAL_STRING("{\"key\":\"value\"}", http_request.body);
-}
-
-void test_parse_request_missing_url(void) {
-    char *argv[] = {"-X", "POST"};
-    int argc = 2;
-    request http_request = {};
-    int request_status = parse_request(argc, argv, &http_request);
-
-    TEST_ASSERT_EQUAL_INT(1, request_status);
-    TEST_ASSERT_EQUAL_STRING("URL required", http_request.err);
-}
-
-void test_parse_request_missing_flag_arg(void) {
-    char *argv[] = {"-X"};
-    int argc = 1;
-    request http_request = {};
-    int request_status = parse_request(argc, argv, &http_request);
-
-    TEST_ASSERT_EQUAL_INT(1, request_status);
-    TEST_ASSERT_EQUAL_STRING("-X requires an argument", http_request.err);
-}
-
 
 // ---- URL PARSING TESTS ----
+
 void test_parse_url_http(void) {
     url parsed;
     int parse_status = parse_url("http://example.com/api", &parsed);
@@ -115,6 +55,7 @@ void test_parse_url_default_path(void) {
 }
 
 // ---- TLS TESTS ----
+
 void test_set_tls_invalid_fd(void) {
     // Passing an invalid socket fd should fail the TLS handshake and return NULL
     SSL *ssl = set_tls(-1);
@@ -132,6 +73,7 @@ void test_set_tls_closed_socket(void) {
 }
 
 // ---- REQUEST TESTS ----
+
 void test_send_request_format(void) {
     // Use socketpair to capture what send_request writes
     int fds[2];
@@ -196,6 +138,7 @@ void test_send_request_closed_socket(void) {
 }
 
 // ---- RESPONSE TESTS ----
+
 void test_read_response_success(void) {
     int fds[2];
     TEST_ASSERT_EQUAL_INT(0, socketpair(AF_UNIX, SOCK_STREAM, 0, fds));
@@ -243,13 +186,7 @@ int main(void) {
     UNITY_BEGIN();
 
     // ARGS parsing
-    RUN_TEST(test_parse_request_default_method);
-    RUN_TEST(test_parse_request_method_post);
-    RUN_TEST(test_parse_request_with_header);
-    RUN_TEST(test_parse_request_with_body);
-    RUN_TEST(test_parse_request_missing_url);
-    RUN_TEST(test_parse_request_missing_flag_arg); 
-
+    RUN_TEST(test_parse_arguments); 
 
     // URL parsing
     RUN_TEST(test_parse_url_http);
