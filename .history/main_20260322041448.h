@@ -31,7 +31,7 @@ typedef struct {
 int parse_request(int argc, char *argv[], request *out); 
 int parse_url(char *url_str, url *out);
 SSL *set_tls(int sockfd);
-int send_request(int sockfd, SSL *ssl, request *req, url *parsed_url, url *parsed_proxy);
+int send_request(int sockfd, SSL *ssl, request *req, url *parsed_url);
 int read_response(int sockfd, SSL *ssl);
 
 #endif

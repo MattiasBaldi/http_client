@@ -85,32 +85,6 @@ void test_parse_request_with_proxy(void) {
     TEST_ASSERT_EQUAL_STRING("http://example.com/api", http_request.url);
 }
 
-void test_parse_request_unknown_flag(void) {
-    char *argv[] = {"-Z", "foo", "http://example.com"};
-    int argc = 3;
-    request http_request = {};
-    int request_status = parse_request(argc, argv, &http_request);
-
-    TEST_ASSERT_EQUAL_INT(1, request_status);
-    TEST_ASSERT_EQUAL_STRING("Unknown flag", http_request.err);
-}
-
-void test_parse_request_too_many_headers(void) {
-    char *argv[MAX_HEADERS * 2 + 2];
-    int argc = 0;
-    for (int i = 0; i < MAX_HEADERS + 1; i++) {
-        argv[argc++] = "-H";
-        argv[argc++] = "X-Test: value";
-    }
-    argv[argc++] = "http://example.com";
-
-    request http_request = {};
-    int request_status = parse_request(argc, argv, &http_request);
-
-    TEST_ASSERT_EQUAL_INT(1, request_status);
-    TEST_ASSERT_EQUAL_STRING("Too many headers", http_request.err);
-}
-
 void test_parse_request_proxy_missing_arg(void) {
     char *argv[] = {"-x"};
     int argc = 1;
@@ -141,16 +115,6 @@ void test_parse_url_https(void) {
     TEST_ASSERT_EQUAL_STRING("example.com", parsed.host);
     TEST_ASSERT_EQUAL_STRING("443", parsed.port);
     TEST_ASSERT_EQUAL_STRING("/api", parsed.path);
-}
-
-void test_parse_url_custom_port(void) {
-    url parsed;
-    int parse_status = parse_url("http://127.0.0.1:8118/path", &parsed);
-    TEST_ASSERT_EQUAL_INT(0, parse_status);
-    TEST_ASSERT_EQUAL_STRING("http", parsed.protocol);
-    TEST_ASSERT_EQUAL_STRING("127.0.0.1", parsed.host);
-    TEST_ASSERT_EQUAL_STRING("8118", parsed.port);
-    TEST_ASSERT_EQUAL_STRING("/path", parsed.path);
 }
 
 void test_parse_url_invalid(void) {
@@ -197,7 +161,7 @@ void test_send_request_format(void) {
 
     request req = { .method = "GET", .url = "http://example.com/index.html" };
     url url = { .host = "example.com", .path = "/index.html" };
-    int result = send_request(fds[0], NULL, &req, &url, NULL);
+    int result = send_request(fds[0], NULL, &req, &url);
     TEST_ASSERT_EQUAL_INT(0, result);
 
     // Read what was sent from the other end
@@ -225,7 +189,7 @@ void test_send_request_post(void) {
 
     request req = { .method = "POST", .url = "http://api.example.com/submit" };
     url url = { .host = "api.example.com", .path = "/submit" };
-    int result = send_request(fds[0], NULL, &req, &url, NULL);
+    int result = send_request(fds[0], NULL, &req, &url);
     TEST_ASSERT_EQUAL_INT(0, result);
 
     char buf[2048] = {0};
@@ -240,54 +204,6 @@ void test_send_request_post(void) {
     close(fds[1]);
 }
 
-void test_send_request_http_proxy(void) {
-    // HTTP through proxy should use full URL in request line
-    int fds[2];
-    TEST_ASSERT_EQUAL_INT(0, socketpair(AF_UNIX, SOCK_STREAM, 0, fds));
-
-    request req = { .method = "GET", .url = "http://example.com/api" };
-    url parsed_url = { .protocol = "http", .host = "example.com", .path = "/api" };
-    url proxy = { .host = "127.0.0.1", .port = "8118" };
-    int result = send_request(fds[0], NULL, &req, &parsed_url, &proxy);
-    TEST_ASSERT_EQUAL_INT(0, result);
-
-    char buf[2048] = {0};
-    ssize_t n = recv(fds[1], buf, sizeof(buf) - 1, 0);
-    TEST_ASSERT_GREATER_THAN(0, n);
-    buf[n] = '\0';
-
-    // Should use full URL for HTTP proxy
-    TEST_ASSERT_NOT_NULL(strstr(buf, "GET http://example.com/api HTTP/1.1\r\n"));
-    TEST_ASSERT_NOT_NULL(strstr(buf, "Host: example.com\r\n"));
-
-    close(fds[0]);
-    close(fds[1]);
-}
-
-void test_send_request_https_proxy(void) {
-    // HTTPS through proxy (CONNECT tunnel) should use path only
-    int fds[2];
-    TEST_ASSERT_EQUAL_INT(0, socketpair(AF_UNIX, SOCK_STREAM, 0, fds));
-
-    request req = { .method = "GET", .url = "https://example.com/api" };
-    url parsed_url = { .protocol = "https", .host = "example.com", .path = "/api" };
-    url proxy = { .host = "127.0.0.1", .port = "8118" };
-    int result = send_request(fds[0], NULL, &req, &parsed_url, &proxy);
-    TEST_ASSERT_EQUAL_INT(0, result);
-
-    char buf[2048] = {0};
-    ssize_t n = recv(fds[1], buf, sizeof(buf) - 1, 0);
-    TEST_ASSERT_GREATER_THAN(0, n);
-    buf[n] = '\0';
-
-    // Should use path only for HTTPS (tunnel already established)
-    TEST_ASSERT_NOT_NULL(strstr(buf, "GET /api HTTP/1.1\r\n"));
-    TEST_ASSERT_NOT_NULL(strstr(buf, "Host: example.com\r\n"));
-
-    close(fds[0]);
-    close(fds[1]);
-}
-
 void test_send_request_closed_socket(void) {
     // Sending on a closed socket should fail
     int fds[2];
@@ -297,7 +213,7 @@ void test_send_request_closed_socket(void) {
 
     request req = { .method = "GET", .url = "http://example.com/" };
     url url = { .host = "example.com", .path = "/" };
-    int result = send_request(fds[0], NULL, &req, &url, NULL);
+    int result = send_request(fds[0], NULL, &req, &url);
     TEST_ASSERT_EQUAL_INT(1, result);
 }
 
@@ -355,8 +271,6 @@ int main(void) {
     RUN_TEST(test_parse_request_with_body);
     RUN_TEST(test_parse_request_missing_url);
     RUN_TEST(test_parse_request_missing_flag_arg);
-    RUN_TEST(test_parse_request_unknown_flag);
-    RUN_TEST(test_parse_request_too_many_headers);
     RUN_TEST(test_parse_request_with_proxy);
     RUN_TEST(test_parse_request_proxy_missing_arg);
 
@@ -364,7 +278,6 @@ int main(void) {
     // URL parsing
     RUN_TEST(test_parse_url_http);
     RUN_TEST(test_parse_url_https);
-    RUN_TEST(test_parse_url_custom_port);
     RUN_TEST(test_parse_url_invalid);
     RUN_TEST(test_parse_url_null);
     RUN_TEST(test_parse_url_default_path);
@@ -376,8 +289,6 @@ int main(void) {
     // Request
     RUN_TEST(test_send_request_format);
     RUN_TEST(test_send_request_post);
-    RUN_TEST(test_send_request_http_proxy);
-    RUN_TEST(test_send_request_https_proxy);
     RUN_TEST(test_send_request_closed_socket);
 
     // Response

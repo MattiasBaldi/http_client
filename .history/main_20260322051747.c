@@ -35,16 +35,13 @@ int parse_request(int argc, char *argv[], request *out)
     
     // Headers (optional, multiple allowed)
     else if (strcmp(argv[i], "-H") == 0) {
-      if (i + 1 >= argc) {
+      if (i + 1 < argc && out->headers_count < MAX_HEADERS) {
+        out->headers[out->headers_count++] = argv[i+1];
+        i++;
+      } else {
         out->err = "-H requires an argument";
         return 1;
       }
-      if (out->headers_count >= MAX_HEADERS) {
-        out->err = "Too many headers";
-        return 1;
-      }
-      out->headers[out->headers_count++] = argv[i+1];
-      i++;
     }
 
     // Proxy (optional)
@@ -74,11 +71,6 @@ int parse_request(int argc, char *argv[], request *out)
     // URL (required, must start with http:// or https://)
     else if (strncmp(argv[i], "http://", 7) == 0 || strncmp(argv[i], "https://", 8) == 0) {
       out->url = argv[i];
-    }
-    // Unknown flag
-    else if (argv[i][0] == '-') {
-      out->err = "Unknown flag";
-      return 1;
     }
   }
 
@@ -160,15 +152,14 @@ int send_request(int sockfd, SSL *ssl, request *req, url *parsed_url, url *parse
   int offset = 0;
 
   // Request line + default headers
-  // Full URL for HTTP proxy, path only for direct or HTTPS tunnel
-  if (parsed_proxy && strcmp(parsed_url->protocol, "https") != 0)
-  {
+  if (parsed_proxy)                                                   
+  {                                                                   
       offset += snprintf(req_buf + offset, sizeof(req_buf) - offset,
-      "%s %s://%s%s HTTP/1.1\r\n"
-      "Host: %s\r\n"
-      "User-Agent: MyHTTPClient/1.0\r\n",
-      req->method, parsed_url->protocol, parsed_url->host,
-      parsed_url->path, parsed_url->host);
+      "%s %s://%s%s HTTP/1.1\r\n"                                     
+      "Host: %s\r\n"                                                  
+      "User-Agent: MyHTTPClient/1.0\r\n",                             
+      req->method, parsed_url->protocol, parsed_url->host,            
+      parsed_url->path, parsed_url->host);                                
   }
   else {
     offset += snprintf(req_buf + offset, sizeof(req_buf) - offset,
@@ -332,32 +323,7 @@ int main(int argc, char *argv[]) {
   }
   freeaddrinfo(res); // Free DNS results
 
-  // 4.5 Proxy Tunnel (if using proxy -> https through proxy)
-  if (parsed_proxy && strcmp(parsed_url->protocol, "https") == 0)
-  {
-    char connect_buf[512]; 
-    int len = snprintf(connect_buf, sizeof(connect_buf), 
-      "CONNECT %s:%s HTTP/1.1\r\nHost: %s:%s\r\n\r\n", 
-      parsed_url->host, parsed_url->port, 
-      parsed_url->host, parsed_url->port); 
-
-      if(send(sockfd, connect_buf, len, 0) == -1)
-      {
-        perror("CONNECT send failed"); 
-        status = 1; 
-        goto cleanup; 
-      }
-
-      char response[1024];
-      ssize_t n = recv(sockfd, response, sizeof(response) - 1, 0);
-      response[n > 0 ? n : 0] = '\0';
-      if (n <= 0 || strstr(response, "200") == NULL)
-      {
-        fprintf(stderr, "Proxy CONNECT failed\n"); 
-        status = 1; 
-        goto cleanup; 
-      }
-  }
+  // Tunnel
 
   // 5. Establish TLS handshake if https (see notes.md#tlsssl-handshake-process)
   if (strcmp(parsed_url->protocol, "https") == 0) {

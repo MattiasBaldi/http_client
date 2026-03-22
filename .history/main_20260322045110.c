@@ -35,16 +35,13 @@ int parse_request(int argc, char *argv[], request *out)
     
     // Headers (optional, multiple allowed)
     else if (strcmp(argv[i], "-H") == 0) {
-      if (i + 1 >= argc) {
+      if (i + 1 < argc && out->headers_count < MAX_HEADERS) {
+        out->headers[out->headers_count++] = argv[i+1];
+        i++;
+      } else {
         out->err = "-H requires an argument";
         return 1;
       }
-      if (out->headers_count >= MAX_HEADERS) {
-        out->err = "Too many headers";
-        return 1;
-      }
-      out->headers[out->headers_count++] = argv[i+1];
-      i++;
     }
 
     // Proxy (optional)
@@ -74,11 +71,6 @@ int parse_request(int argc, char *argv[], request *out)
     // URL (required, must start with http:// or https://)
     else if (strncmp(argv[i], "http://", 7) == 0 || strncmp(argv[i], "https://", 8) == 0) {
       out->url = argv[i];
-    }
-    // Unknown flag
-    else if (argv[i][0] == '-') {
-      out->err = "Unknown flag";
-      return 1;
     }
   }
 
@@ -155,28 +147,16 @@ SSL *set_tls(int sockfd) {
 }
 
 // See notes.md#printf-family-of-functions
-int send_request(int sockfd, SSL *ssl, request *req, url *parsed_url, url *parsed_proxy) {
+int send_request(int sockfd, SSL *ssl, request *req, url *parsed_url) {
   char req_buf[4096];
   int offset = 0;
 
   // Request line + default headers
-  // Full URL for HTTP proxy, path only for direct or HTTPS tunnel
-  if (parsed_proxy && strcmp(parsed_url->protocol, "https") != 0)
-  {
-      offset += snprintf(req_buf + offset, sizeof(req_buf) - offset,
-      "%s %s://%s%s HTTP/1.1\r\n"
-      "Host: %s\r\n"
-      "User-Agent: MyHTTPClient/1.0\r\n",
-      req->method, parsed_url->protocol, parsed_url->host,
-      parsed_url->path, parsed_url->host);
-  }
-  else {
-    offset += snprintf(req_buf + offset, sizeof(req_buf) - offset,
+  offset += snprintf(req_buf + offset, sizeof(req_buf) - offset,
     "%s %s HTTP/1.1\r\n"
     "Host: %s\r\n"
     "User-Agent: MyHTTPClient/1.0\r\n",
     req->method, parsed_url->path, parsed_url->host);
-  }
 
   // Custom headers from -H flags
   for (int i = 0; i < req->headers_count; i++) {
@@ -259,8 +239,6 @@ int main(int argc, char *argv[]) {
   int status = 0;
   int sockfd = -1;
   url *parsed_url = NULL;
-  url *parsed_proxy = NULL;
-  url *target = NULL;
   struct addrinfo *res = NULL;
   SSL *ssl = NULL;
 
@@ -281,29 +259,16 @@ int main(int argc, char *argv[]) {
     goto cleanup;
   }
 
-  // 1. Parse proxy (if provided)
-  if (http_request.proxy)
-  {
-      parsed_proxy = malloc(sizeof(*parsed_proxy));
-      int proxy_status = parse_url(http_request.proxy, parsed_proxy);
-
-      if (proxy_status)
-      {
-        printf("Issues with parsing proxy, ending program\n");
-        status = 1;
-        goto cleanup;
-      }  
-  }
-
   // CONNECTION
-  target = parsed_proxy ? parsed_proxy : parsed_url;   // Decide target depending on whether we are using a proxy or not
 
   // 2. Perform DNS Lookup (see notes.md#dns-resolution-with-getaddrinfo)
   struct addrinfo hints = {};
   hints.ai_family = AF_UNSPEC;
   hints.ai_socktype = SOCK_STREAM;
 
-  int dns_status = getaddrinfo(target->host, target->port, &hints, &res);
+  char* host = http_request.proxy ? http_request.proxy : parsed_url->host; 
+
+  int dns_status = getaddrinfo(parsed_url->host, parsed_url->port, &hints, &res);
   if (dns_status != 0)
   {
     fprintf(stderr, "getaddrinfo error: %s\n", gai_strerror(dns_status));
@@ -332,33 +297,6 @@ int main(int argc, char *argv[]) {
   }
   freeaddrinfo(res); // Free DNS results
 
-  // 4.5 Proxy Tunnel (if using proxy -> https through proxy)
-  if (parsed_proxy && strcmp(parsed_url->protocol, "https") == 0)
-  {
-    char connect_buf[512]; 
-    int len = snprintf(connect_buf, sizeof(connect_buf), 
-      "CONNECT %s:%s HTTP/1.1\r\nHost: %s:%s\r\n\r\n", 
-      parsed_url->host, parsed_url->port, 
-      parsed_url->host, parsed_url->port); 
-
-      if(send(sockfd, connect_buf, len, 0) == -1)
-      {
-        perror("CONNECT send failed"); 
-        status = 1; 
-        goto cleanup; 
-      }
-
-      char response[1024];
-      ssize_t n = recv(sockfd, response, sizeof(response) - 1, 0);
-      response[n > 0 ? n : 0] = '\0';
-      if (n <= 0 || strstr(response, "200") == NULL)
-      {
-        fprintf(stderr, "Proxy CONNECT failed\n"); 
-        status = 1; 
-        goto cleanup; 
-      }
-  }
-
   // 5. Establish TLS handshake if https (see notes.md#tlsssl-handshake-process)
   if (strcmp(parsed_url->protocol, "https") == 0) {
     ssl = set_tls(sockfd);
@@ -369,7 +307,7 @@ int main(int argc, char *argv[]) {
   }
 
   // REQUEST
-  if (send_request(sockfd, ssl, &http_request, parsed_url, parsed_proxy)) {
+  if (send_request(sockfd, ssl, &http_request, parsed_url)) {
     status = 1;
     goto cleanup;
   }
@@ -387,7 +325,6 @@ int main(int argc, char *argv[]) {
   // cleanup
   cleanup:
     if (parsed_url) free(parsed_url);
-    if (parsed_proxy) free(parsed_proxy);
     if (ssl) SSL_free(ssl);
     if (sockfd != -1) close(sockfd);
     return status;
