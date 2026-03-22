@@ -1,6 +1,8 @@
 # http_client
 
-A curl-inspired HTTP/HTTPS client written in C using POSIX sockets and OpenSSL. Handles DNS resolution, TCP connections, TLS handshakes, custom headers, request bodies, and HTTP proxy support with CONNECT tunneling for HTTPS.
+A simple curl-inspired HTTP/HTTPS client written in C using POSIX sockets and OpenSSL. Handles DNS resolution, TCP connections, TLS handshakes, custom headers, request bodies, and HTTP proxy support with CONNECT tunneling for HTTPS.
+
+> **Note:** This is an educational project built to learn networking and HTTP internals. Not intended for production use — use at your own risk.
 
 ## Usage
 

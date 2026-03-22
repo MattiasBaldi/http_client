@@ -88,6 +88,18 @@ int parse_request(int argc, char *argv[], request *out)
   }
 
   if (out->method == NULL) out->method = "GET";
+
+  // Validate method
+  const char *valid_methods[] = {"GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS", NULL};
+  int valid = 0;
+  for (int i = 0; valid_methods[i]; i++) {
+    if (strcmp(out->method, valid_methods[i]) == 0) { valid = 1; break; }
+  }
+  if (!valid) {
+    out->err = "Invalid HTTP method";
+    return 1;
+  }
+
   return 0;
 }
 
@@ -133,7 +145,7 @@ int parse_url(char *url_str, url *out) {
 }
 
 // See notes.md#ssl-vs-http-communication for send/recv differences
-SSL *set_tls(int sockfd) {
+SSL *set_tls(int sockfd, const char *hostname) {
   // Step 1: Initialize SSL context
   const SSL_METHOD *tls_method = TLS_client_method();
   SSL_CTX *ssl_ctx = SSL_CTX_new(tls_method);
@@ -141,13 +153,14 @@ SSL *set_tls(int sockfd) {
 
   // Step 2: Create SSL connection object
   SSL *ssl = SSL_new(ssl_ctx);
+  SSL_CTX_free(ssl_ctx); // safe: ssl holds a ref
   SSL_set_fd(ssl, sockfd);
+  SSL_set_tlsext_host_name(ssl, hostname); // SNI
 
   // Step 3: Perform TLS handshake and verify certificate
   if (SSL_connect(ssl) != 1 || SSL_get_verify_result(ssl) != X509_V_OK) {
     fprintf(stderr, "TLS connection failed\n");
     SSL_free(ssl);
-    SSL_CTX_free(ssl_ctx);
     return NULL;
   }
 
@@ -361,7 +374,7 @@ int main(int argc, char *argv[]) {
 
   // 5. Establish TLS handshake if https (see notes.md#tlsssl-handshake-process)
   if (strcmp(parsed_url->protocol, "https") == 0) {
-    ssl = set_tls(sockfd);
+    ssl = set_tls(sockfd, parsed_url->host);
     if (!ssl) {
       status = 1;
       goto cleanup;

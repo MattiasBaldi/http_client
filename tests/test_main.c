@@ -96,7 +96,7 @@ void test_parse_request_unknown_flag(void) {
 }
 
 void test_parse_request_too_many_headers(void) {
-    char *argv[MAX_HEADERS * 2 + 2];
+    char *argv[(MAX_HEADERS + 1) * 2 + 1];
     int argc = 0;
     for (int i = 0; i < MAX_HEADERS + 1; i++) {
         argv[argc++] = "-H";
@@ -175,7 +175,7 @@ void test_parse_url_default_path(void) {
 // ---- TLS TESTS ----
 void test_set_tls_invalid_fd(void) {
     // Passing an invalid socket fd should fail the TLS handshake and return NULL
-    SSL *ssl = set_tls(-1);
+    SSL *ssl = set_tls(-1, "localhost");
     TEST_ASSERT_NULL(ssl);
 }
 
@@ -185,7 +185,7 @@ void test_set_tls_closed_socket(void) {
     socketpair(AF_UNIX, SOCK_STREAM, 0, fds);
     close(fds[0]);
     close(fds[1]);
-    SSL *ssl = set_tls(fds[0]);
+    SSL *ssl = set_tls(fds[0], "localhost");
     TEST_ASSERT_NULL(ssl);
 }
 
